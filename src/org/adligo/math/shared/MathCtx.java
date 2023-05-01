@@ -47,7 +47,9 @@ public class MathCtx implements I_MathCtx {
     BigInteger lb = BigInteger.ONE;
     
     if (a.compareTo(b) <= -1) {
-      b = a;
+      BigInteger temp = a;
+      a = b;
+      b = temp;
     }
     while (BigInteger.ZERO != b) {
       lb = b;
