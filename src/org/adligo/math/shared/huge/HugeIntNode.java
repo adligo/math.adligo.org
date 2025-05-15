@@ -1,4 +1,4 @@
-package org.adligo.math.shared;
+package org.adligo.math.shared.huge;
 
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -32,7 +32,7 @@ import java.util.Arrays;
  * </code><pre>
  */
 
-public class IntArrayLink {
+public class HugeIntNode {
 	public static final String INT_ARRAY_LINK_DATA_ARRAYS_MUST_BE_1_8_IN_LENGTH = "IntArrayLink data arrays must be 1-8 in length!";
 	public static final BigInteger ALL_ONES_INT = new BigInteger("4294967295");
 	public static final String EIGHT_FS = "ffffffff";
@@ -85,87 +85,27 @@ public class IntArrayLink {
 		return data.clone();
 	}
 	private final int[] data;
-    private final IntArrayLink next;
-    private final IntArrayLink previous;
     
-    public IntArrayLink(int[] data) {
+    public HugeIntNode(int[] data) {
         this.data = verifyAndCloneData(data);
-        this.next = null;
-        this.previous = null;
     }
     
-    public IntArrayLink(BigInteger i) {
+    public HugeIntNode(BigInteger i) {
         this.data = verifyAndCloneData(from(i));
-        this.next = null;
-        this.previous = null;
     }
     
-    public IntArrayLink(int[] data, IntArrayLink previous) {
-        this.data = verifyAndCloneData(data);
-        this.previous = previous;
-        this.next = null;
-    }
-    
-    public IntArrayLink(BigInteger i, IntArrayLink previous) {
-        this.data = verifyAndCloneData(from(i));
-        this.next = null;
-        this.previous = previous;
-    }
-
-    public IntArrayLink(IntArrayLink head, IntArrayLink next) {
-        this.data = verifyAndCloneData(head.data);
-        this.next = next;
-        this.previous = null;
-    }
-    
-    public IntArrayLink(int[] data, IntArrayLink previous, IntArrayLink next) {
-        this.data = verifyAndCloneData(data);
-        this.next = next;
-        this.previous = previous;
-    }
-    
-    public IntArrayLink(IntArrayLink data, IntArrayLink previous, IntArrayLink next) {
-        this.data = verifyAndCloneData(data.data);
-        this.next = next;
-        this.previous = previous;
-    }
-    
-    public IntArrayLink(BigInteger i, IntArrayLink previous, IntArrayLink next) {
-        this.data = verifyAndCloneData(from(i));
-        this.next = next;
-        this.previous = previous;
-    }
-    
-    public BigInteger add(IntArrayLink other) {
+    public BigInteger add(HugeIntNode other) {
     	BigInteger o = other.toBig();
     	BigInteger m = toBig();
     	return o.add(m);
     }
-    
-    public boolean hasNext() {
-    	if (next == null) {
-    		return false;
-    	}
-    	return true;
-    }
-    
-    public IntArrayLink getNext() {
-    	return next;
-    }
-    
-    public IntArrayLink getPrevious() {
-    	return previous;
-    }
-    
+ 
+    /**
+     * Note this is somewhat expensive as the data is cloned on each call!
+     * @return
+     */
     public int[] getData() {
     	return data.clone();
-    }
-    
-    public boolean hasPrevious() {
-    	if (previous == null) {
-    		return false;
-    	}
-    	return true;
     }
     
     public BigInteger toBig() {
