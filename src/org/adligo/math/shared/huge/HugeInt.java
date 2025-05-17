@@ -1,19 +1,25 @@
 package org.adligo.math.shared.huge;
 
-import java.math.BigInteger;
-import java.nio.IntBuffer;
-import java.util.PrimitiveIterator;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.IntPredicate;
-import java.util.function.IntSupplier;
-import java.util.stream.IntStream;
+import static org.adligo.i_math.shared.huge.HugeConstants.MAX_BYTE;
+import static org.adligo.i_math.shared.huge.HugeConstants.MAX_CHUNK;
+import static org.adligo.i_math.shared.huge.HugeConstants.MAX_INT;
+import static org.adligo.i_math.shared.huge.HugeConstants.MAX_LONG;
+import static org.adligo.i_math.shared.huge.HugeConstants.MAX_SHORT;
+import static org.adligo.i_math.shared.huge.HugeConstants.MIN_BYTE;
+import static org.adligo.i_math.shared.huge.HugeConstants.MIN_INT;
+import static org.adligo.i_math.shared.huge.HugeConstants.MIN_LONG;
+import static org.adligo.i_math.shared.huge.HugeConstants.MIN_SHORT;
 
-import org.adligo.collections.linked.DoublyLinkedList;
-import org.adligo.collections.linked.DoublyLinkedListMutant;
-import org.adligo.i_collections.shared.linked.I_DoublyLinkedNode;
+import java.math.BigInteger;
+import java.util.Iterator;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
+
 import org.adligo.i_math.shared.IntType;
+import org.adligo.i_math.shared.MathException;
+import org.adligo.i_math.shared.huge.HugeConstants;
 import org.adligo.i_math.shared.huge.I_HugeInt;
+import org.adligo.i_math.shared.huge.I_HugeIntBuffer;
 
 /**
  * Immutable implementation of I_HugeInt using a linked list of IntArrayLink nodes.
@@ -43,450 +49,537 @@ import org.adligo.i_math.shared.huge.I_HugeInt;
  * </code><pre>
  */
 public class HugeInt implements I_HugeInt {
+	public static final String A_NUMBER_IS_REQUIRED = "A number is required!";
 	public static final String ADDING_OF_NEGATIVE_NUMBERS_IS_NOT_SUPPORTED_YET = "Adding of negative numbers is not supported yet!";
 	public static final String THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BIG_INTEGER = "This HugeInt doesn't fit into a BigInteger!";
 	public static final String THIS_HUGE_INT_DOESN_T_FIT_INTO_A_LONG = "This HugeInt doesn't fit into a long!";
 	public static final String THIS_HUGE_INT_DOESN_T_FIT_INTO_A_SHORT = "This HugeInt doesn't fit into a short!";
 	public static final String THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BYTE = "This huge int doesn't fit into a byte!";
 	public static final String THIS_HUGE_INT_DOESN_T_FIT_INTO_A_INT = "This HugeInt doesn't fit into a int!";
-	public static final HugeInt ZERO = new HugeInt(0);
-	public static final HugeInt ONE = new HugeInt(1);
-	public static final HugeInt TWO = new HugeInt(2);
-    final DoublyLinkedList<HugeIntNode> list;
-    final boolean negative;
-    final I_HugeInt linkCount;
-
-    public HugeInt(byte value) {
-    	throw new RuntimeException("TODO Implement me");
-    }
-    
-    public HugeInt(short value) {
-    	throw new RuntimeException("TODO Implement me");
-    }
-    /**
-     * Constructs a HugeInt from a single integer.
-     */
-    public HugeInt(int value) {
-    	HugeIntNode head = new HugeIntNode(new int[]{Math.abs(value)});
-    	DoublyLinkedListMutant<HugeIntNode> tlist = new DoublyLinkedListMutant<HugeIntNode>();
-    	tlist.add(head);
-        this.list = new DoublyLinkedList<HugeIntNode>(tlist);
-        if (value < 0) {
-        	this.negative = true;
-        } else {
-        	this.negative = false;
-        }
-        this.linkCount = ONE;
-    }
-    
-    public HugeInt(long value) {
-    	throw new RuntimeException("TODO Implement me");
-    }
-    
-    public HugeInt(BigInteger value) {
-    	throw new RuntimeException("TODO Implement me");
-    }
-    
-    /**
-     * Constructs a HugeInt from an array of integers.
-     * Each array element becomes a node in the linked list.
-     * @param negative if the number is negative
-     * @param input in little to big ending order all integers are interpreted for their byte values, so the negative sign
-     *   as a bit is used for positive or negative bits depending on the negative parameter.
-     */
-    public HugeInt(boolean negative, IntStream input) {
-    	this.negative = negative;
-        IntBuffer buf = IntBuffer.allocate(8);
-        PrimitiveIterator.OfInt iterator = input.iterator();
-        DoublyLinkedListMutant<HugeIntNode> tlist = new DoublyLinkedListMutant<HugeIntNode>();
-        
-    	
-        int counter = 0;
-        //I_HugeInt linkCountLocal = null;
-        int linkCountLocal = 0;
-        boolean first = true;
-        while (iterator.hasNext()) {
-
-        	int next = iterator.nextInt();
-        	if (counter >= 8) {
-        		int [] ints = new int [8];
-        		for (int i = 0; i < 8; i++) {
-					int n = buf.get(i);
-					ints[7-i] = n;
-				}
-				HugeIntNode nn = new HugeIntNode(ints);
-				tlist.add(nn);
-				//TODO
-				//linkCountLocal = linkCountLocal.add(HugeInt.ONE);
-				linkCountLocal++;
-        		buf = IntBuffer.allocate(8);
-        	}
-        	buf.put(next);
-        	if (first) {
-        		//TODO
-        		//linkCountLocal = new HugeInt(1);
-        		linkCountLocal++;
-        		first = false;
-        	}
-        	counter++;
-        }
-        int remaining = buf.position();
-        if (remaining != 0) {
-	        int [] ints = new int [remaining];
-			for (int i = 0; i < remaining; i++) {
-				int n = buf.get(i);
-				ints[remaining-1-i] = n;
-				//linkCountLocal = linkCountLocal.add(HugeInt.ONE);
-				//TODO
-	    		linkCountLocal++;
-			}
+	public static final HugeInt ZERO = new HugeInt((byte) 0);
+	public static final HugeInt ONE = new HugeInt((byte) 1);
+	public static final HugeInt TWO = new HugeInt((byte) 2);
+	public static final HugeInt TEN = new HugeInt((byte) 2);
 	
-			tlist.add(new HugeIntNode(ints));
-        }
-		this.list = new DoublyLinkedList<HugeIntNode>(tlist);
-		this.linkCount = new HugeInt(linkCountLocal);
-    }
-    
-    /**
-     * Returns the number of IntArrayLink nodes in this HugeInt.
-     */
-    public I_HugeInt getLinkCount() {
-        return linkCount;
-    }
-    
-
-
-	@Override
-	public String toString() {
-		return "HugeInt [list=" + list + ", negative=" + negative + ", linkCount=" + linkCount
-				+ "]";
-	}
-
-	@Override
-	public I_HugeInt add(I_HugeInt other) {
-		if (this.negative || !other.isPositive()) {
-			throw new IllegalStateException(ADDING_OF_NEGATIVE_NUMBERS_IS_NOT_SUPPORTED_YET);
+	private static AbstractDelegate getDelegate(BigInteger b) {
+		int c = MAX_CHUNK.compareTo(b);
+		if (c >= 0) {
+			if (b.compareTo(MIN_BYTE) >= 0 && b.compareTo(MAX_BYTE) <= 0) {
+				return new ByteDelegate(b.byteValueExact());
+			} else if (b.compareTo(MIN_SHORT) >= 0 && b.compareTo(MAX_SHORT) <= 0) {
+				return new ShortDelegate(b.shortValueExact());
+			} else if (b.compareTo(MIN_INT) >= 0 && b.compareTo(MAX_INT) <= 0) {
+				return new IntDelegate(b.intValueExact());
+			} else if (b.compareTo(MIN_LONG) >= 0 && b.compareTo(MAX_LONG) <= 0) {
+				return new LongDelegate(b.longValueExact());
+			} else {
+				return new BigIntegerDelegate(b);
+			}
+		} else {
+			byte [] bytes = b.toByteArray();
+			//TODO split into chunks bad programmer!
+			return new BigIntegerDelegate(b);
+			
 		}
-		AddStream as = new AddStream(toStream().iterator(), other.toStream().iterator());
-		return new HugeInt(false, IntStream.generate(as).takeWhile(as.isNotDone()));
 	}
-
-	@Override
-	public boolean isByte() {
-		// TODO Auto-generated method stub
-		return false;
+	private final AbstractDelegate delegate;
+	
+	public HugeInt(byte b) {
+		delegate = new ByteDelegate(b);
 	}
-
-	@Override
-	public boolean isShort() {
-		// TODO Auto-generated method stub
-		return false;
-	}
-
-	@Override
-	public boolean isInt() {
-		I_DoublyLinkedNode<HugeIntNode> head = list.getHead();
-		if (head.hasNext()) {
-			return false;
+	
+	public HugeInt(short s) {
+		if (s < Byte.MIN_VALUE || s > Byte.MAX_VALUE) {
+			delegate = new ShortDelegate(s);
+		} else {
+			delegate = new ByteDelegate((byte) s);
 		}
-		HugeIntNode hin = head.getValue();
-		int [] data = hin.getData();
-		if (data.length > 1) {
-			return false;
+	}
+	
+	public HugeInt(int i) {
+		if (i >= Byte.MIN_VALUE && i <= Byte.MAX_VALUE) {
+			delegate = new ByteDelegate((byte) i);
+		} else if (i >= Short.MIN_VALUE && i <= Short.MAX_VALUE) {
+			delegate = new ShortDelegate((short) i);
+		} else {
+			delegate = new IntDelegate(i);
 		}
-		if (data[0] == HugeIntNode.ALL_ONES) {
-			return false;
+	}
+	
+	public HugeInt(long l) {
+		if (l >= Byte.MIN_VALUE && l <= Byte.MAX_VALUE) {
+			delegate = new ByteDelegate((byte) l);
+		} else if (l >= Short.MIN_VALUE && l <= Short.MAX_VALUE) {
+			delegate = new ShortDelegate((short) l);
+		} else if (l >= Integer.MIN_VALUE && l <= Integer.MAX_VALUE) {
+			delegate = new IntDelegate((short) l);
+		} else {
+			delegate = new LongDelegate(l);
 		}
-		return true;
 	}
 
-	@Override
-	public boolean isLong() {
-		// TODO Auto-generated method stub
-		return false;
+	public HugeInt(BigInteger b) {
+		delegate = getDelegate(b);
 	}
-
+	
+	public HugeInt(Stream<BigInteger> s) {
+		Iterator<BigInteger> it = s.iterator();
+		BigInteger first = it.next();
+		if (first != null) {
+			if (it.hasNext()) {
+				BigInteger second = it.next();
+				if (second != null) {
+					//TODO 
+					delegate = null;
+					return;
+				}
+			} 
+			delegate = getDelegate(first);
+			return;
+		} 
+		throw new IllegalArgumentException(A_NUMBER_IS_REQUIRED);
+	}
+	
+	public HugeInt(I_HugeIntBuffer b) {
+		//TODO
+		delegate = null;
+	}
+	
 	@Override
 	public boolean isBig() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+			case Short:
+			case Int:
+			case Long:
+				return true;
+			case Big:
+				if (delegate instanceof BigIntegerDelegate) {
+					return true;
+				} 
+			default:
+				return false;
+		}
+	}
+	@Override
+	public I_HugeInt toHuge() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	@Override
+	public boolean isLong() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+			case Short:
+			case Int:
+			case Long:
+				return true;
+			default:
+				return false;
+		}
+	}
+	
+	@Override
+	public BigInteger toBig() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+				return BigInteger.valueOf(((ByteDelegate) delegate).toByte());
+			case Short:
+				return BigInteger.valueOf(((ShortDelegate) delegate).toShort());
+			case Int:
+				return BigInteger.valueOf(((IntDelegate) delegate).toInt());
+			case Long:
+				return BigInteger.valueOf(((LongDelegate) delegate).toLong());
+			default:
+				if (delegate instanceof BigIntegerDelegate) {
+					return ((BigIntegerDelegate) delegate).toBigInteger();
+				} else if (delegate instanceof RamBufferedDelegate) {
+					throw new MathException("TODO");
+				} else {
+					throw new MathException("TODO");
+				}
+		}
+	}
+	@Override
+	public boolean isInt() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+			case Short:
+			case Int:
+				return true;
+			default:
+				return false;
+		}
+	}
+	@Override
+	public long toLong() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+				return ((ByteDelegate) delegate).toByte();
+			case Short:
+				return ((ShortDelegate) delegate).toShort();
+			case Int:
+				return ((IntDelegate) delegate).toInt();
+			case Long:
+				return ((LongDelegate) delegate).toLong();
+			default:
+		}
+		throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_LONG);
+	}
+	
+	@Override
+	public boolean isShort() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+			case Short:
+				return true;
+			default:
+				return false;
+		}
+	}
+	@Override
+	public int toInt() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+				return ((ByteDelegate) delegate).toByte();
+			case Short:
+				return ((ShortDelegate) delegate).toShort();
+			case Int:
+				return ((IntDelegate) delegate).toInt();
+			default:
+		}
+		throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_INT);
+	}
+	@Override
+	public boolean isByte() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+				return true;
+			default:
+				return false;
+		}
+	}
+	@Override
+	public short toShort() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+				return ((ByteDelegate) delegate).toByte();
+			case Short:
+				return ((ShortDelegate) delegate).toShort();
+			default:
+		}
+		throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_SHORT);
+	}
+	
+	@Override
+	public IntType getType() {
+		return delegate.getType();
+	}
+	@Override
+	public byte toByte() {
+		IntType it = delegate.getType();
+		switch (it) {
+			case Byte:
+				return ((ByteDelegate) delegate).toByte();
+			default:
+		}
+		throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BYTE);
+	}
+	@Override
+	public I_HugeInt add(I_HugeInt other) {
+		if (!this.isPositive() || !other.isPositive()) {
+			throw new IllegalStateException(ADDING_OF_NEGATIVE_NUMBERS_IS_NOT_SUPPORTED_YET);
+		}
+		return new HugeInt(new AddStream(this.toStream(), other.toStream()).calc());
+	}
+	
+	@Override
+	public I_HugeInt add(I_HugeInt other, I_HugeIntBuffer buffer) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	@Override
+	public boolean isInRam() {
+		return delegate.isInRam();
+	}
+	@Override
+	public boolean isPositive() {
+		return !delegate.isNegative();
+	}
+	@Override
+	public boolean isGreaterThan(long i) {
 		// TODO Auto-generated method stub
 		return false;
 	}
-
 	@Override
-	public boolean isPositive() {
-		return !negative;
+	public Stream<BigInteger> toStream() {
+		return toStream(true);
 	}
-
 	@Override
-	public byte toByte() {
-		I_DoublyLinkedNode<HugeIntNode> head = list.getHead();
-		if (head.hasNext()) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BYTE);
-		}
-		HugeIntNode hin = head.getValue();
-		int [] data = hin.getData();
-		if (data.length > 1) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BYTE);
-		}
-		int val = data[0];
-		if (val == HugeIntNode.ALL_ONES) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BYTE);
-		}
-		if (val > Byte.MAX_VALUE || val < Byte.MIN_VALUE) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BYTE);
-		}
-		return (byte) val;
+	public Stream<BigInteger> toStream(boolean littleToBig) {
+		return delegate.toStream(littleToBig);
 	}
+}
 
-	@Override
-	public short toShort() {
-		I_DoublyLinkedNode<HugeIntNode> head = list.getHead();
-		if (head.hasNext()) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_SHORT);
-		}
-		HugeIntNode hin = head.getValue();
-		int [] data = hin.getData();
-		if (data.length > 1) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_SHORT);
-		}
-		int val = data[0];
-		if (val == HugeIntNode.ALL_ONES) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_SHORT);
-		}
-		if (val > Short.MAX_VALUE || val < Short.MIN_VALUE) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_SHORT);
-		}
-		return (byte) val;
+
+abstract class AbstractDelegate {
+	
+	public boolean isInRam() {
+		return true;
 	}
-
-	@Override
-	public int toInt() {
-		I_DoublyLinkedNode<HugeIntNode> head = list.getHead();
-		if (head.hasNext()) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_INT);
-		}
-		HugeIntNode hin = head.getValue();
-		int [] data = hin.getData();
-		if (data.length > 1) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_INT);
-		}
-		if (data[0] == HugeIntNode.ALL_ONES) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_INT);
-		}
-		return data[0];
+	
+	public IntType getType() {
+		return IntType.Big;
 	}
-
-	@Override
-	public long toLong() {
-		I_DoublyLinkedNode<HugeIntNode> head = list.getHead();
-		if (head.hasNext()) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_LONG);
-		}
-		HugeIntNode hin = head.getValue();
-		int [] data = hin.getData();
-		if (data.length > 2) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_LONG);
-		}
-		if (data.length == 1) {
-			return (long) data[0];
-		}
-		int iz = data[0];
-		int i1 = data[1];
-		long r = i1;
-		r = r << 32;
-		r = r | iz;
-		return r;
+	
+	public boolean isNegative() {
+		return false;
 	}
+	public abstract Stream<BigInteger> toStream(boolean littleToBig);
+}
 
-	@Override
-	public BigInteger toBig() {
-		I_DoublyLinkedNode<HugeIntNode> head = list.getHead();
-		if (linkCount.isGreaterThan((long) Integer.MAX_VALUE)) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BIG_INTEGER);
-		}
-		int mi = Integer.MAX_VALUE;
-		if (this.linkCount.isInt()) {
-			long lci = (linkCount.toInt() - 1) * 8;
-			I_DoublyLinkedNode<HugeIntNode> tail = list.getTail();
-			HugeIntNode hin = tail.getValue();
-			int [] data = hin.getData();
-			lci = lci + data.length;
-			if (lci > Integer.MAX_VALUE) {
-				throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BIG_INTEGER);
+class ByteDelegate extends AbstractDelegate {
+	private byte b;
+	
+	public ByteDelegate(byte b) {
+		this.b = b;
+	}
+	public Stream<BigInteger> toStream(boolean littleToBig) {
+		Supplier<BigInteger> sup = new Supplier<BigInteger>() {
+			BigInteger big = BigInteger.valueOf((long) Math.abs(b));
+			@Override
+			public BigInteger get() {
+				BigInteger t = big;
+				big = null;
+				return t;
 			}
-		}
-		if (head.hasNext()) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_BIG_INTEGER);
-		}
-		HugeIntNode hin = head.getValue();
-		int [] data = hin.getData();
-		if (data.length > 2) {
-			throw new IllegalStateException(THIS_HUGE_INT_DOESN_T_FIT_INTO_A_LONG);
-		}
-		if (data.length == 1) {
-			return BigInteger.valueOf((long) data[0]);
-		}
-		int iz = data[0];
-		int i1 = data[1];
-		long r = i1;
-		r = r << 32;
-		r = r | iz;
-		return BigInteger.ZERO;
+			
+		};
+		return Stream.generate(sup);
 	}
-    
-	public boolean isGreaterThan(long i) {
-		if (this.isLong()) {
-			long m = toLong();
-			if (m > i) {
-				return true;
-			}
+	
+	public IntType getType() {
+		return IntType.Byte;
+	}
+	public boolean isNegative() {
+		if (b < 0) {
+			return true;
 		}
 		return false;
 	}
-    // Other I_HugeInt methods would go here...
-
-	@Override
-	public IntStream toStream() {
-		return toStream(true);
+	public byte toByte() {
+		return b;
 	}
+}
 
-	@Override
-	public IntStream toStream(boolean littleToBig) {
-		if (littleToBig) {
-			LittleToBigIntStream ltbis = new LittleToBigIntStream(this);
-			return IntStream.generate(ltbis).takeWhile(ltbis.isNotDone());
-		} else {
-			//Stream
-			return null;
-		}
+class ShortDelegate extends AbstractDelegate {
+	private short s;
+	
+	public ShortDelegate(short s) {
+		this.s = s;
 	}
-
-	@Override
-	public I_HugeInt toHuge() {
-		return this;
+	public Stream<BigInteger> toStream(boolean littleToBig) {
+		Supplier<BigInteger> sup = new Supplier<BigInteger>() {
+			BigInteger big = BigInteger.valueOf((long) Math.abs(s));
+			@Override
+			public BigInteger get() {
+				BigInteger t = big;
+				big = null;
+				return t;
+			}
+			
+		};
+		return Stream.generate(sup);
 	}
-
-	@Override
 	public IntType getType() {
+		return IntType.Short;
+	}
+	public boolean isNegative() {
+		if (s < 0) {
+			return true;
+		}
+		return false;
+	}
+	public short toShort() {
+		return s;
+	}
+}
+
+class IntDelegate extends AbstractDelegate {
+	private int i;
+	
+	public IntDelegate(int i) {
+		this.i = i;
+	}
+	public Stream<BigInteger> toStream(boolean littleToBig) {
+		Supplier<BigInteger> s = new Supplier<BigInteger>() {
+			BigInteger big = BigInteger.valueOf(Math.abs(i));
+			@Override
+			public BigInteger get() {
+				BigInteger t = big;
+				big = null;
+				return t;
+			}
+			
+		};
+		return Stream.generate(s);
+	}
+	public IntType getType() {
+		return IntType.Int;
+	}
+	public boolean isNegative() {
+		if (i < 0) {
+			return true;
+		}
+		return false;
+	}
+	public int toInt() {
+		return i;
+	}
+}
+
+
+class LongDelegate extends AbstractDelegate {
+	private long l;
+	
+	public LongDelegate(long l) {
+		this.l = l;
+	}
+	public Stream<BigInteger> toStream(boolean littleToBig) {
+		Supplier<BigInteger> s = new Supplier<BigInteger>() {
+			BigInteger big = BigInteger.valueOf(Math.abs(l));
+			@Override
+			public BigInteger get() {
+				BigInteger t = big;
+				big = null;
+				return t;
+			}
+			
+		};
+		return Stream.generate(s);
+	}
+	public IntType getType() {
+		return IntType.Long;
+	}
+	public boolean isNegative() {
+		if (l < 0) {
+			return true;
+		}
+		return false;
+	}
+	public long toLong() {
+		return l;
+	}
+}
+
+class BigIntegerDelegate extends AbstractDelegate {
+	private BigInteger b;
+	
+	public BigIntegerDelegate(BigInteger b) {
+		this.b = b;
+	}
+	public Stream<BigInteger> toStream(boolean littleToBig) {
+		Supplier<BigInteger> s = new Supplier<BigInteger>() {
+			BigInteger big = b.abs();
+			@Override
+			public BigInteger get() {
+				BigInteger t = big;
+				big = null;
+				return t;
+			}
+			
+		};
+		return Stream.generate(s);
+	}
+	public boolean isNegative() {
+		if (b.compareTo(BigInteger.ZERO) <= 0) {
+			return true;
+		}
+		return false;
+	}
+	public BigInteger toBigInteger() {
+		return b;
+	}
+}
+
+class RamBufferedDelegate extends AbstractDelegate {
+
+	@Override
+	public Stream<BigInteger> toStream(boolean littleToBig) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+}
+
+class ExternalBufferedDelegate extends AbstractDelegate {
+
+	@Override
+	public boolean isInRam() {
+		return false;
+	}
+
+	@Override
+	public Stream<BigInteger> toStream(boolean littleToBig) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 }
- 
-class LittleToBigIntStream implements IntSupplier {
-	I_DoublyLinkedNode<HugeIntNode> current;
-	int [] data;
-	int idx = 0;
-	AtomicBoolean done = new AtomicBoolean(false);
-	AtomicBoolean done2 = new AtomicBoolean(false);
-	IntPredicate predicate = new IntPredicate() {
-		
-		@Override
-		public boolean test(int value) {
-			if (done2.get()) {
-				return false;
-			}
-			if (done.get()) {
-				done2.set(true);
-			}
-			return true;
-		}
-	};
-	
-	public LittleToBigIntStream(HugeInt hi) {
-		current = hi.list.getHead();
-		data = current.getValue().getData();
-	}
-	
-	@Override
-	public int getAsInt() {
-		if (idx > data.length - 1) {
-			done.set(true);
-			return 0;
-		}
-		int r = data[idx];
-		idx++;
-		if (idx >= data.length) {
-			if (current.hasNext()) {
-				current = current.getNext();
-				data = current.getValue().getData();
-				idx = 0;
-			} else {
-				done.set(true);
-			}
-		} 
-		return r;
-	}
-	
-	public IntPredicate isNotDone() {
-		return predicate;
-	}
-}
 
-class BigToLittleIntStream implements IntSupplier {
+class AddStream {
+	Iterator<BigInteger> l;
+	Iterator<BigInteger> r;
 	
-	@Override
-	public int getAsInt() {
-		// TODO Auto-generated method stub
-		return 0;
+	public AddStream(Stream<BigInteger> l, Stream<BigInteger> r) {
+		this.l = l.iterator();
+		this.r = r.iterator();
 	}
 	
-	public boolean isDone() {
-		return false;
-	}
-}
-
-
-
-class AddStream implements IntSupplier {
-	long carry = 0;
-	AtomicInteger last = new AtomicInteger();
-	AtomicBoolean done = new AtomicBoolean(false);
-	AtomicBoolean done2 = new AtomicBoolean(false);
-	final PrimitiveIterator.OfInt meIt;
-	final PrimitiveIterator.OfInt oIt;
-	final IntPredicate predicate = new IntPredicate() {
-
-		@Override
-		public boolean test(int value) {
-			if (done2.get()) {
-				return false;
+	public Stream<BigInteger> calc() {
+		Supplier<BigInteger> sup = new Supplier<BigInteger>() {
+			BigInteger nl = null;
+			BigInteger nr = null;
+			BigInteger carry = null;
+			
+			@Override
+			public BigInteger get() {
+				//This logic will get complex
+				if (l.hasNext()) {
+					nl = l.next();
+				}
+				if (r.hasNext()) {
+					nr = r.next();
+				}
+				if (nl != null && nr != null) {
+					if (carry != null) {
+						BigInteger ret = nl.add(nr).add(carry);
+						if (ret.compareTo(HugeConstants.MAX_CHUNK) >= 1) {
+							throw new MathException("TODO overflow");
+						}
+						return ret;
+					} else {
+						BigInteger ret = nl.add(nr);
+						if (ret.compareTo(HugeConstants.MAX_CHUNK) >= 1) {
+							throw new MathException("TODO overflow");
+						}
+						return ret;
+					}
+				}
+				return null;
 			}
-			if (done.get()) {
-				done2.set(true);
-			}
-			return true;
-		}
-		
-	};
-	
-	public AddStream(PrimitiveIterator.OfInt meIt, PrimitiveIterator.OfInt oIt) {
-		this.meIt = meIt;
-		this.oIt = oIt;
+		};
+		return Stream.generate(sup);
+
 	}
 	
-	@Override
-	public int getAsInt() {
-		long m = 0;
-		long o = 0;
-		if (meIt.hasNext()) {
-			m = meIt.nextInt();
-		}
-		if (oIt.hasNext()) {
-			o = oIt.nextInt();
-		}
-		long r = m + o + carry;
-		if (r >= Integer.MAX_VALUE) {
-			carry = r - Integer.MAX_VALUE;
-		}
-		if (!meIt.hasNext() && !oIt.hasNext() && carry == 0) {
-			done.set(true);
-		}
-		last.set((int) r);
-		return (int) r;
-	}
-	
-	public IntPredicate isNotDone() {
-		return predicate;
-	}
 }

@@ -4,6 +4,7 @@ package org.adligo.math.shared.huge;
 import java.math.BigInteger;
 
 import org.adligo.i_math.shared.IntType;
+import org.adligo.i_math.shared.huge.HugeConstants;
 import org.adligo.i_math.shared.huge.I_HugeCounter;
 import org.adligo.i_math.shared.huge.I_HugeInt;
 
